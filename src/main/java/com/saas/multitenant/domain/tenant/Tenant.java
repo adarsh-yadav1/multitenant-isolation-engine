@@ -6,13 +6,13 @@ import org.hibernate.annotations.UuidGenerator;
 
 import java.time.Instant;
 
-/**
- * Central registry record for a tenant in the master database.
- *
- * <p>This entity is always read from the MASTER datasource (the default
- * fallback in {@link com.saas.multitenant.config.TenantDataSourceConfig}).
- * It is never stored in a tenant's isolated database.
- */
+
+//   Central registry record for a tenant in the master database
+ 
+//   This entity is always read from the MASTER datasource (the default
+//   fallback in com.saas.multitenant.config.TenantDataSourceConfig)
+//   It is never stored in a tenant's isolated database
+ 
 @Entity
 @Table(name = "tenants")
 @Getter
@@ -47,11 +47,9 @@ public class Tenant {
     @Column(name = "database_username", nullable = false)
     private String databaseUsername;
 
-    /** Stored AES-256 encrypted. Never log or expose in API responses. */
     @Column(name = "database_password", nullable = false)
     private String databasePassword;
 
-    /** Nullable — NULL means use tier default. */
     @Column(name = "requests_per_minute")
     private Integer requestsPerMinute;
 
@@ -75,7 +73,6 @@ public class Tenant {
         updatedAt = Instant.now();
     }
 
-    // ─── Computed helpers ──────────────────────────────────────────────────────
 
     public long getEffectiveRequestsPerMinute() {
         if (requestsPerMinute != null) return requestsPerMinute;
@@ -84,7 +81,7 @@ public class Tenant {
             case STARTER -> 200L;
             case PROFESSIONAL -> 600L;
             case ENTERPRISE -> 2000L;
-            case CUSTOM -> 100L;  // fallback for mis-configured CUSTOM tenants
+            case CUSTOM -> 100L;  
         };
     }
 

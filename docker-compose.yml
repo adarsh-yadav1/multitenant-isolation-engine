@@ -1,0 +1,139 @@
+version: "3.9"
+
+networks:
+  saas-network:
+    driver: bridge
+
+volumes:
+  mysql-master-data:
+  mysql-tenant-a-data:
+  mysql-tenant-b-data:
+  redis-data:
+
+services:
+
+  # ─── Redis (Bucket4j token bucket state) ───────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: saas-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - saas-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Master DB (tenant registry) ───────────────────────────────────────────
+  mysql-master:
+    image: mysql:8.0
+    container_name: saas-mysql-master
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MASTER_DB_ROOT_PASSWORD}
+      MYSQL_DATABASE:      ${MASTER_DB_NAME}
+      MYSQL_USER:          ${MASTER_DB_USER}
+      MYSQL_PASSWORD:      ${MASTER_DB_PASSWORD}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-master-data:/var/lib/mysql
+      - ./docker/init-scripts/master-init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    networks:
+      - saas-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MASTER_DB_ROOT_PASSWORD}"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+
+  # ─── Tenant A dedicated database ───────────────────────────────────────────
+  mysql-tenant-a:
+    image: mysql:8.0
+    container_name: saas-mysql-tenant-a
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${TENANT_DB_ROOT_PASSWORD}
+      MYSQL_DATABASE:      tenant_a
+      MYSQL_USER:          ${TENANT_DB_USER}
+      MYSQL_PASSWORD:      ${TENANT_DB_PASSWORD}
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql-tenant-a-data:/var/lib/mysql
+    networks:
+      - saas-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+
+  # ─── Tenant B dedicated database ───────────────────────────────────────────
+  mysql-tenant-b:
+    image: mysql:8.0
+    container_name: saas-mysql-tenant-b
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${TENANT_DB_ROOT_PASSWORD}
+      MYSQL_DATABASE:      tenant_b
+      MYSQL_USER:          ${TENANT_DB_USER}
+      MYSQL_PASSWORD:      ${TENANT_DB_PASSWORD}
+    ports:
+      - "3308:3306"
+    volumes:
+      - mysql-tenant-b-data:/var/lib/mysql
+    networks:
+      - saas-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+
+  # ─── Spring Boot Application ────────────────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: saas-app
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+      mysql-master:
+        condition: service_healthy
+      mysql-tenant-a:
+        condition: service_healthy
+      mysql-tenant-b:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      MASTER_DB_URL:          jdbc:mysql://mysql-master:3306/${MASTER_DB_NAME}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      MASTER_DB_USER:         ${MASTER_DB_USER}
+      MASTER_DB_PASSWORD:     ${MASTER_DB_PASSWORD}
+      TENANT_A_DB_URL:        jdbc:mysql://mysql-tenant-a:3306/tenant_a?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      TENANT_B_DB_URL:        jdbc:mysql://mysql-tenant-b:3306/tenant_b?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      TENANT_DB_USER:         ${TENANT_DB_USER}
+      TENANT_DB_PASSWORD:     ${TENANT_DB_PASSWORD}
+      REDIS_HOST:             redis
+      REDIS_PORT:             6379
+      JWT_SECRET:             ${JWT_SECRET}
+      ADMIN_JWT_SECRET:       ${ADMIN_JWT_SECRET}
+      DB_ENCRYPTION_KEY:      ${DB_ENCRYPTION_KEY}
+    ports:
+      - "8080:8080"
+    networks:
+      - saas-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:8080/actuator/health >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s

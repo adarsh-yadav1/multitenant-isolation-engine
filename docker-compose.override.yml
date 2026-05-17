@@ -1,0 +1,24 @@
+# Development overrides — automatically merged by Docker Compose.
+# NOT used in CI or production (only docker-compose.yml is used there).
+
+version: "3.9"
+
+services:
+
+  app:
+    environment:
+      JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"
+    ports:
+      - "5005:5005"   # Remote debug port
+
+  # Web-based DB admin — dev only, never expose in production
+  adminer:
+    image: adminer:latest
+    container_name: saas-adminer
+    restart: unless-stopped
+    ports:
+      - "8090:8080"
+    networks:
+      - saas-network
+    depends_on:
+      - mysql-master

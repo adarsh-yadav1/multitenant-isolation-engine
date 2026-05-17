@@ -1,0 +1,42 @@
+# ── Secrets (NEVER commit) ─────────────────────────────────────────────────────
+.env
+*.pem
+*.key
+*.p12
+*.jks
+
+# ── Maven ──────────────────────────────────────────────────────────────────────
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# ── IDE ────────────────────────────────────────────────────────────────────────
+.idea/
+*.iml
+*.iws
+.project
+.classpath
+.settings/
+.vscode/
+*.code-workspace
+
+# ── OS ─────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# ── Logs ───────────────────────────────────────────────────────────────────────
+*.log
+logs/
+spring.log
+
+# ── Docker ─────────────────────────────────────────────────────────────────────
+# Keep docker-compose.yml and Dockerfile tracked
+# Ignore local override if you use a personal one:
+# docker-compose.local.yml
+
+# ── Test reports ───────────────────────────────────────────────────────────────
+surefire-reports/
+failsafe-reports/

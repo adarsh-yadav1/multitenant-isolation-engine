@@ -1,0 +1,104 @@
+spring:
+  application:
+    name: multi-tenant-engine
+
+  # ── JPA / Hibernate ──────────────────────────────────────────────────────────
+  jpa:
+    hibernate:
+      ddl-auto: validate          # Flyway owns the schema; Hibernate just validates
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+    show-sql: false
+    open-in-view: false           # Avoid lazy-loading pitfalls
+
+  # ── Redis ─────────────────────────────────────────────────────────────────────
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      # password: ${REDIS_PASSWORD:}   # Uncomment for production Redis auth
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+
+  # ── Flyway ────────────────────────────────────────────────────────────────────
+  flyway:
+    enabled: true
+    locations: classpath:db/migration/master
+    url: ${MASTER_DB_URL:jdbc:mysql://localhost:3306/saas_master?useSSL=false&serverTimezone=UTC}
+    user: ${MASTER_DB_USER:master_user}
+    password: ${MASTER_DB_PASSWORD:}
+
+# ── Master DataSource ──────────────────────────────────────────────────────────
+datasource:
+  master:
+    url: ${MASTER_DB_URL:jdbc:mysql://localhost:3306/saas_master?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
+    username: ${MASTER_DB_USER:master_user}
+    password: ${MASTER_DB_PASSWORD:}
+    hikari:
+      pool-name: MasterPool
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+# ── Tenant DataSources (bootstrapped at startup, more added at runtime) ─────────
+tenant:
+  datasource:
+    default-user: ${TENANT_DB_USER:tenant_user}
+    default-password: ${TENANT_DB_PASSWORD:}
+    pool-sizes:
+      FREE: 2
+      STARTER: 5
+      PROFESSIONAL: 10
+      ENTERPRISE: 20
+
+# ── Rate Limiting Defaults ────────────────────────────────────────────────────
+rate-limit:
+  tiers:
+    FREE:
+      requests-per-minute: 60
+      burst-capacity: 60
+    STARTER:
+      requests-per-minute: 200
+      burst-capacity: 300
+    PROFESSIONAL:
+      requests-per-minute: 600
+      burst-capacity: 900
+    ENTERPRISE:
+      requests-per-minute: 2000
+      burst-capacity: 3000
+
+# ── Security ──────────────────────────────────────────────────────────────────
+app:
+  security:
+    jwt-secret: ${JWT_SECRET}
+    admin-jwt-secret: ${ADMIN_JWT_SECRET}
+    jwt-expiration-ms: 86400000    # 24 hours
+  encryption:
+    db-key: ${DB_ENCRYPTION_KEY}
+
+# ── Actuator ─────────────────────────────────────────────────────────────────
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+# ── Logging ──────────────────────────────────────────────────────────────────
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] [tenant:%X{tenantId}] %-5level %logger{36} - %msg%n"
+  level:
+    root: INFO
+    com.saas.multitenant: DEBUG
+    org.hibernate.SQL: WARN

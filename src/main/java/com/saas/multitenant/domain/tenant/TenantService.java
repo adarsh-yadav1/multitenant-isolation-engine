@@ -59,7 +59,7 @@ public class TenantService {
 
     
     //   Persists a rate-limit-exceeded event asynchronously so it doesn't add
-      latency to the request that was already rejected with HTTP 429.
+    //   latency to the request that was already rejected with HTTP 429.
     @Async
     public void recordRateLimitEvent(String tenantId, String endpoint) {
         try {

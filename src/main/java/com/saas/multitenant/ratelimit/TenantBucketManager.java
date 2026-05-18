@@ -58,7 +58,7 @@ public class TenantBucketManager {
         log.info("Rate limit bucket reset for tenant={}", tenantId);
     }
 
-    Returns the configured requests-per-minute for response headers.
+    // Returns the configured requests-per-minute for response headers.
     @Cacheable(value = "tenantRateLimitConfig", key = "#tenantId")
     public long getRateLimitForTenant(String tenantId) {
         Tenant tenant = tenantService.getActiveTenant(tenantId);

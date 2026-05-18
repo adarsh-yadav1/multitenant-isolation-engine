@@ -12,8 +12,7 @@ COPY src ./src
 RUN mvn package -DskipTests -q
 
 # ── Stage 2: Runtime ────────────────────────────────────────────────────────────
-FROM eclipse-temurin:17-jre-alpine
-
+FROM eclipse-temurin:17-jre-jammy
 # Security: run as non-root
 RUN addgroup -S saas && adduser -S saas -G saas
 USER saas

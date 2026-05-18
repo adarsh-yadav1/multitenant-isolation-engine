@@ -14,7 +14,7 @@ RUN mvn package -DskipTests -q
 # ── Stage 2: Runtime ────────────────────────────────────────────────────────────
 FROM eclipse-temurin:17-jre-jammy
 # Security: run as non-root
-RUN addgroup -S saas && adduser -S saas -G saas
+RUN groupadd --system saas && useradd --system --gid saas --no-create-home saas
 USER saas
 
 WORKDIR /app

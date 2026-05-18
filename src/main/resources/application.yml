@@ -9,6 +9,10 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
+        multi_tenancy: SCHEMA     # Physical schema-per-tenant isolation
+        # Resolver beans are wired in TenantDataSourceConfig
+        tenant_identifier_resolver: com.saas.multitenant.multitenancy.TenantIdentifierResolver
+        multi_tenant_connection_provider: com.saas.multitenant.multitenancy.TenantConnectionProvider
     show-sql: false
     open-in-view: false           # Avoid lazy-loading pitfalls
 

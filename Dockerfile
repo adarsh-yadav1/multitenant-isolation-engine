@@ -7,7 +7,7 @@ WORKDIR /build
 COPY pom.xml .
 RUN mvn dependency:go-offline -q
 
-# Copy source and build (skip tests — tests run in CI, not image build)
+# Copy source and build (tests run in CI, not image build)
 COPY src ./src
 RUN mvn package -DskipTests -q
 
@@ -20,13 +20,11 @@ USER saas
 
 WORKDIR /app
 
-# Copy the built jar from the builder stage
 COPY --from=builder /build/target/*.jar app.jar
 
-# Expose application port
 EXPOSE 8080
 
-# JVM tuning for containers: respect cgroup memory limits
+# JVM tuning: respect cgroup memory limits in containers
 ENTRYPOINT ["java", \
   "-XX:+UseContainerSupport", \
   "-XX:MaxRAMPercentage=75.0", \

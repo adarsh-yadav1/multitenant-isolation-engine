@@ -15,17 +15,17 @@ import org.springframework.web.servlet.HandlerInterceptor;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Spring {@link HandlerInterceptor} that enforces per-tenant rate limits.
- *
- * <p>Runs in {@code preHandle()} — before any controller method executes.
- * Uses non-blocking {@code tryConsumeAndReturnRemaining(1)} so the thread
- * is never parked waiting for tokens; requests over the limit are rejected
- * immediately with HTTP 429.
- *
- * <p>Registered in {@link com.saas.multitenant.config.WebMvcConfig} for
- * the {@code /api/**} URL pattern only (admin and actuator endpoints are excluded).
- */
+
+//  Spring HandlerInterceptor that enforces per-tenant rate limits
+ 
+//  Runs in preHandle() — before any controller method executes
+//  Uses non-blocking tryConsumeAndReturnRemaining(1)}so the thread
+//  is never parked waiting for tokens; requests over the limit are rejected
+//  immediately with HTTP 429
+ 
+//  Registered in config.WebMvcConfig for
+//  the  /api/** URL pattern only (admin and actuator endpoints are excluded)
+ 
 @Slf4j
 @Component
 @RequiredArgsConstructor

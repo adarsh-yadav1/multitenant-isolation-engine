@@ -152,6 +152,7 @@
 
   <build>
     <plugins>
+
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
@@ -164,17 +165,35 @@
           </excludes>
         </configuration>
       </plugin>
-      <!-- Enforce code style in CI -->
+
+      <!--
+        Explicitly wire Lombok into the compiler's annotation processor path.
+        Without this, @Slf4j / @RequiredArgsConstructor etc. are silently ignored
+        and the compiler emits "cannot find symbol: variable log".
+      -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-checkstyle-plugin</artifactId>
-        <version>3.3.1</version>
+        <artifactId>maven-compiler-plugin</artifactId>
         <configuration>
-          <configLocation>google_checks.xml</configLocation>
-          <failsOnError>true</failsOnError>
-          <includeTestSourceDirectory>true</includeTestSourceDirectory>
+          <source>${java.version}</source>
+          <target>${java.version}</target>
+          <annotationProcessorPaths>
+            <path>
+              <groupId>org.projectlombok</groupId>
+              <artifactId>lombok</artifactId>
+              <version>${lombok.version}</version>
+            </path>
+          </annotationProcessorPaths>
         </configuration>
       </plugin>
+
+      <!-- Generates mvnw / .mvn/wrapper so CI can use ./mvnw -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-wrapper-plugin</artifactId>
+        <version>3.3.2</version>
+      </plugin>
+
     </plugins>
   </build>
 

@@ -225,17 +225,17 @@ multi-tenant-engine/
 docker compose up -d redis mysql-master mysql-tenant-a mysql-tenant-b
 
 # Run app with local profile
-mvn spring-boot:run -Dspring-boot.run.profiles=local
+./mvnw spring-boot:run -Dspring-boot.run.profiles=local
 ```
 
 ### Run tests
 
 ```bash
 # Unit tests
-mvn test
+./mvnw test
 
 # Integration tests (requires Docker for Testcontainers)
-mvn verify -P integration-tests
+./mvnw verify -P integration-tests
 ```
 
 ### Load test (k6)

@@ -7,12 +7,12 @@ import org.hibernate.annotations.UuidGenerator;
 import java.time.Instant;
 
 
-//   Central registry record for a tenant in the master database
+// Central registry record for a tenant in the master database
  
-//   This entity is always read from the MASTER datasource (the default
-//   fallback in com.saas.multitenant.config.TenantDataSourceConfig)
-//   It is never stored in a tenant's isolated database
- 
+// This entity is always read from the MASTER datasource (the default
+// fallback in config.TenantDataSourceConfig)
+// It is never stored in a tenant's isolated database
+
 @Entity
 @Table(name = "tenants")
 @Getter
@@ -24,7 +24,7 @@ public class Tenant {
 
     @Id
     @UuidGenerator
-    @Column(columnDefinition = "CHAR(36)", updatable = false, nullable = false)
+    @Column(length = 36, updatable = false, nullable = false)
     private String id;
 
     @Column(name = "tenant_id", length = 100, nullable = false, unique = true)
@@ -72,7 +72,6 @@ public class Tenant {
     protected void onUpdate() {
         updatedAt = Instant.now();
     }
-
 
     public long getEffectiveRequestsPerMinute() {
         if (requestsPerMinute != null) return requestsPerMinute;

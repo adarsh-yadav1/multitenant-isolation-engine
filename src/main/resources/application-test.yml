@@ -1,0 +1,15 @@
+# Applied when spring.profiles.active=test (unit tests)
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+  flyway:
+    enabled: false   # Flyway disabled in unit tests — schema created by ddl-auto
+
+logging:
+  level:
+    root: WARN
+    com.saas.multitenant: INFO

@@ -5,9 +5,9 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.scheduling.annotation.EnableAsync;
 
-@EnableAsync
-@EnableCaching
 @SpringBootApplication
+@EnableCaching
+@EnableAsync
 public class MultiTenantEngineApplication {
 
     public static void main(String[] args) {

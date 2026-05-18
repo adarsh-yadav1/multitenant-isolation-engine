@@ -1,18 +1,16 @@
 package com.saas.multitenant.multitenancy;
 
-/**
- * ThreadLocal carrier for the current tenant identifier.
- *
- * <p>Set once per request by {@link com.saas.multitenant.filter.TenantIdentificationFilter}
- * and cleared in its {@code finally} block to prevent cross-request contamination
- * in thread-pool environments.
- *
- * <p>Read by:
- * <ul>
- *   <li>{@link TenantAwareDataSourceRouter} — picks the correct HikariCP pool</li>
- *   <li>{@link com.saas.multitenant.ratelimit.RateLimitingInterceptor} — selects the tenant bucket</li>
- * </ul>
- */
+
+// ThreadLocal carrier for the current tenant identifier
+// Set once per request by filter.TenantIdentificationFilter
+// and cleared in its finally block to prevent cross-request contamination
+// in thread-pool environments
+// Read by:
+//   TenantAwareDataSourceRouter— picks the correct HikariCP pool
+//   ratelimit.RateLimitingInterceptor — selects Redis bucket
+//   TenantIdentifierResolver— tells Hibernate which schema to use
+
+
 public final class TenantContext {
 
     private static final ThreadLocal<String> CURRENT_TENANT = new ThreadLocal<>();

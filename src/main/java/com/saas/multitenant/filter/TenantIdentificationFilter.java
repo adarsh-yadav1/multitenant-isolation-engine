@@ -17,22 +17,18 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
-/**
- * Extracts the tenant identifier from every HTTP request and stores it in
- * {@link TenantContext} for the duration of the request thread.
- *
- * <p>Supports two identification strategies:
- * <ol>
- *   <li><b>Header-based</b>: {@code X-Tenant-ID: company_a} — for internal services</li>
- *   <li><b>JWT-based</b>: {@code Authorization: Bearer <token>} containing a
- *       {@code tenantId} claim — for external clients</li>
- * </ol>
- *
- * <p>Header takes precedence over JWT when both are present.
- * <p>Unknown or SUSPENDED tenants receive 401/403 before reaching any controller.
- * <p>{@link TenantContext#clear()} is always called in {@code finally} to prevent
- * memory leaks in Tomcat's thread pool.
- */
+ 
+//  Extracts the tenant identifier from every HTTP request and stores it in
+//  TenantContext for the duration of the request thread
+// 
+//  Supports two identification strategies:
+//    Header-based: X-Tenant-ID: company_a — for internal services
+//    JWT-based: Authorization: Bearer <token> containing a tenantId claim — for external clients
+
+//  Header takes precedence over JWT when both are present
+//  Unknown or SUSPENDED tenants receive 401/403 before reaching any controller
+//  TenantContext#clear() is always called in finally to prevent memory leaks in Tomcat's thread pool.
+ 
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -48,10 +44,12 @@ public class TenantIdentificationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
-        try {
+        try 
+        {
             String tenantId = resolveTenantId(request);
 
-            if (!StringUtils.hasText(tenantId)) {
+            if (!StringUtils.hasText(tenantId)) 
+            {
                 sendError(response, HttpServletResponse.SC_UNAUTHORIZED,
                         "Missing tenant identifier. Provide X-Tenant-ID header or a valid Bearer token.");
                 return;
@@ -65,17 +63,19 @@ public class TenantIdentificationFilter extends OncePerRequestFilter {
             }
 
             TenantContext.setCurrentTenant(tenantId);
-            MDC.put("tenantId", tenantId);   // Appears in every log line for this request
+            MDC.put("tenantId", tenantId);  
 
             filterChain.doFilter(request, response);
 
-        } finally {
+        } 
+        finally 
+        {
             TenantContext.clear();
             MDC.remove("tenantId");
         }
     }
 
-    /** Skip the filter for actuator / admin endpoints that don't carry a tenant ID. */
+    //  Skip the filter for actuator / admin endpoints that don't carry a tenant ID.
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
@@ -84,16 +84,19 @@ public class TenantIdentificationFilter extends OncePerRequestFilter {
                 || path.equals("/error");
     }
 
-    private String resolveTenantId(HttpServletRequest request) {
+    private String resolveTenantId(HttpServletRequest request) 
+    {
         // 1. Explicit header (internal service-to-service calls)
         String header = request.getHeader(TENANT_HEADER);
-        if (StringUtils.hasText(header)) {
+        if (StringUtils.hasText(header)) 
+        {
             return header.trim().toLowerCase();
         }
 
         // 2. JWT Bearer token
         String authHeader = request.getHeader("Authorization");
-        if (StringUtils.hasText(authHeader) && authHeader.startsWith(BEARER_PREFIX)) {
+        if (StringUtils.hasText(authHeader) && authHeader.startsWith(BEARER_PREFIX)) 
+        {
             String token = authHeader.substring(BEARER_PREFIX.length());
             return jwtTokenProvider.extractTenantId(token);
         }

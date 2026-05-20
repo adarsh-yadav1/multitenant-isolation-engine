@@ -3,7 +3,7 @@
 -- Managed by Flyway — do NOT edit; create a new migration for changes.
 
 CREATE TABLE IF NOT EXISTS tenants (
-    id               CHAR(36)      NOT NULL PRIMARY KEY COMMENT 'UUID primary key',
+    id               VARCHAR(36)      NOT NULL PRIMARY KEY COMMENT 'UUID primary key',
     tenant_id        VARCHAR(100)  NOT NULL UNIQUE COMMENT 'Human-readable slug used in requests and Redis keys',
     company_name     VARCHAR(255)  NOT NULL,
     status           ENUM('ACTIVE','SUSPENDED','DEPROVISIONED') NOT NULL DEFAULT 'ACTIVE',

@@ -9,7 +9,6 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-
 // Business logic for tenant lifecycle management
 
 // All reads use the master datasource (the default/fallback datasource
@@ -25,10 +24,9 @@ public class TenantService {
     private final TenantRepository tenantRepository;
     private final RateLimitEventRepository rateLimitEventRepository;
 
- 
-    //  Returns the tenant if ACTIVE, throws otherwise.
-    //  Used by TenantBucketManager and TenantDataSourceConfig.
-  
+    // Returns the tenant if ACTIVE, throws otherwise.
+    // Used by TenantBucketManager and TenantDataSourceConfig.
+
     @Cacheable(value = "activeTenants", key = "#tenantId")
     @Transactional(readOnly = true)
     public Tenant getActiveTenant(String tenantId) {
@@ -45,10 +43,10 @@ public class TenantService {
         return tenant;
     }
 
-    
-    //  Quick active-check used by TenantIdentificationFilter.
-    //  Returns false rather than throwing so the filter can return the right HTTP status.
-     
+    // Quick active-check used by TenantIdentificationFilter.
+    // Returns false rather than throwing so the filter can return the right HTTP
+    // status.
+
     @Cacheable(value = "tenantActiveStatus", key = "#tenantId")
     @Transactional(readOnly = true)
     public boolean isActiveTenant(String tenantId) {
@@ -57,9 +55,8 @@ public class TenantService {
                 .orElse(false);
     }
 
-    
-    //   Persists a rate-limit-exceeded event asynchronously so it doesn't add
-    //   latency to the request that was already rejected with HTTP 429.
+    // Persists a rate-limit-exceeded event asynchronously so it doesn't add
+    // latency to the request that was already rejected with HTTP 429.
     @Async
     public void recordRateLimitEvent(String tenantId, String endpoint) {
         try {
@@ -68,8 +65,7 @@ public class TenantService {
                     .endpoint(endpoint)
                     .build();
             rateLimitEventRepository.save(event);
-        } 
-        catch (Exception e) {
+        } catch (Exception e) {
             log.warn("Failed to record rate-limit event for tenant={} endpoint={}: {}",
                     tenantId, endpoint, e.getMessage());
         }

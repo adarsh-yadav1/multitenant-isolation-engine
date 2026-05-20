@@ -6,9 +6,8 @@ import org.hibernate.annotations.UuidGenerator;
 
 import java.time.Instant;
 
-
 // Central registry record for a tenant in the master database
- 
+
 // This entity is always read from the MASTER datasource (the default
 // fallback in config.TenantDataSourceConfig)
 // It is never stored in a tenant's isolated database
@@ -74,18 +73,20 @@ public class Tenant {
     }
 
     public long getEffectiveRequestsPerMinute() {
-        if (requestsPerMinute != null) return requestsPerMinute;
+        if (requestsPerMinute != null)
+            return requestsPerMinute;
         return switch (tier) {
             case FREE -> 60L;
             case STARTER -> 200L;
             case PROFESSIONAL -> 600L;
             case ENTERPRISE -> 2000L;
-            case CUSTOM -> 100L;  
+            case CUSTOM -> 100L;
         };
     }
 
     public long getEffectiveBucketCapacity() {
-        if (bucketCapacity != null) return bucketCapacity;
+        if (bucketCapacity != null)
+            return bucketCapacity;
         return switch (tier) {
             case FREE -> 60L;
             case STARTER -> 300L;

@@ -17,7 +17,6 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
- 
 //  Extracts the tenant identifier from every HTTP request and stores it in
 //  TenantContext for the duration of the request thread
 // 
@@ -28,7 +27,7 @@ import java.io.IOException;
 //  Header takes precedence over JWT when both are present
 //  Unknown or SUSPENDED tenants receive 401/403 before reaching any controller
 //  TenantContext#clear() is always called in finally to prevent memory leaks in Tomcat's thread pool.
- 
+
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -42,14 +41,12 @@ public class TenantIdentificationFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
-                                    HttpServletResponse response,
-                                    FilterChain filterChain) throws ServletException, IOException {
-        try 
-        {
+            HttpServletResponse response,
+            FilterChain filterChain) throws ServletException, IOException {
+        try {
             String tenantId = resolveTenantId(request);
 
-            if (!StringUtils.hasText(tenantId)) 
-            {
+            if (!StringUtils.hasText(tenantId)) {
                 sendError(response, HttpServletResponse.SC_UNAUTHORIZED,
                         "Missing tenant identifier. Provide X-Tenant-ID header or a valid Bearer token.");
                 return;
@@ -63,40 +60,37 @@ public class TenantIdentificationFilter extends OncePerRequestFilter {
             }
 
             TenantContext.setCurrentTenant(tenantId);
-            MDC.put("tenantId", tenantId);  
+            MDC.put("tenantId", tenantId);
 
             filterChain.doFilter(request, response);
 
-        } 
-        finally 
-        {
+        } finally {
             TenantContext.clear();
             MDC.remove("tenantId");
         }
     }
 
-    //  Skip the filter for actuator / admin endpoints that don't carry a tenant ID.
+    // Skip the filter for actuator / admin endpoints that don't carry a tenant ID.
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
-        return path.startsWith("/actuator")
-                || path.startsWith("/admin/")
-                || path.equals("/error");
+        return path.startsWith("/swagger-ui") ||
+                path.startsWith("/v3/api-docs") ||
+                path.startsWith("/actuator") ||
+                path.startsWith("/admin") || // admin endpoints don't need a tenant
+                path.equals("/favicon.ico");
     }
 
-    private String resolveTenantId(HttpServletRequest request) 
-    {
+    private String resolveTenantId(HttpServletRequest request) {
         // 1. Explicit header (internal service-to-service calls)
         String header = request.getHeader(TENANT_HEADER);
-        if (StringUtils.hasText(header)) 
-        {
+        if (StringUtils.hasText(header)) {
             return header.trim().toLowerCase();
         }
 
         // 2. JWT Bearer token
         String authHeader = request.getHeader("Authorization");
-        if (StringUtils.hasText(authHeader) && authHeader.startsWith(BEARER_PREFIX)) 
-        {
+        if (StringUtils.hasText(authHeader) && authHeader.startsWith(BEARER_PREFIX)) {
             String token = authHeader.substring(BEARER_PREFIX.length());
             return jwtTokenProvider.extractTenantId(token);
         }

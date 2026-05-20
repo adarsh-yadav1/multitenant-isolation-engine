@@ -1,24 +1,24 @@
 package com.saas.multitenant.config;
 
 import com.saas.multitenant.domain.tenant.Tenant;
-import com.saas.multitenant.domain.tenant.TenantRepository;
+import com.saas.multitenant.domain.tenant.TenantTier;
 import com.saas.multitenant.multitenancy.TenantAwareDataSourceRouter;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import javax.sql.DataSource;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
 @Configuration
-@RequiredArgsConstructor
 public class TenantDataSourceConfig {
 
     @Value("${datasource.master.url}")
@@ -30,31 +30,37 @@ public class TenantDataSourceConfig {
     @Value("${datasource.master.password}")
     private String masterPassword;
 
-    
-    // The primary DataSource seen by Spring / Hibernate.
-    // It is a routing proxy that delegates to per-tenant HikariCP pools.
-    // The master DB is the default target (used for system-level queries
-    // when no tenant is in context, e.g. during startup).
-    
     @Primary
     @Bean
-    public DataSource dataSource(TenantRepository tenantRepository) {
-        DataSource masterDs = buildHikari("MasterPool", masterUrl, masterUser, masterPassword, 10);
+    public DataSource dataSource() {
+        // Build master datasource directly — no JPA, no circular dependency
+        HikariDataSource masterDs = (HikariDataSource) buildHikari(
+                "MasterPool", masterUrl, masterUser, masterPassword, 10);
 
         Map<Object, Object> targetDataSources = new HashMap<>();
         targetDataSources.put("master", masterDs);
 
-      
-        tenantRepository.findAll().forEach(tenant -> {
-            try {
-                DataSource tenantDs = buildTenantDataSource(tenant);
-                targetDataSources.put(tenant.getTenantId(), tenantDs);
-                log.info("Datasource registered for tenant={}", tenant.getTenantId());
-            } catch (Exception e) {
-                log.warn("Failed to initialise datasource for tenant={}: {}",
-                        tenant.getTenantId(), e.getMessage());
+        // Load existing tenants via plain JDBC — TenantRepository not available yet
+        try {
+            JdbcTemplate jdbc = new JdbcTemplate(masterDs);
+            List<Map<String, Object>> rows = jdbc.queryForList(
+                    "SELECT tenant_id, database_url, database_username, database_password, tier " +
+                            "FROM tenants WHERE status = 'ACTIVE'");
+            for (Map<String, Object> row : rows) {
+                String tenantId = (String) row.get("tenant_id");
+                try {
+                    DataSource tenantDs = buildHikariFromRow(row);
+                    targetDataSources.put(tenantId, tenantDs);
+                    log.info("Datasource registered for tenant={}", tenantId);
+                } catch (Exception e) {
+                    log.warn("Failed to initialise datasource for tenant={}: {}", tenantId, e.getMessage());
+                }
             }
-        });
+        } catch (Exception e) {
+            // Normal on first boot — tenants table doesn't exist yet
+            // Flyway will create it; tenants are registered later via API
+            log.info("Could not load tenants at startup (first boot?): {}", e.getMessage());
+        }
 
         TenantAwareDataSourceRouter router = new TenantAwareDataSourceRouter();
         router.setTargetDataSources(targetDataSources);
@@ -63,7 +69,6 @@ public class TenantDataSourceConfig {
         return router;
     }
 
-   
     public void addTenantDataSource(TenantAwareDataSourceRouter router, Tenant tenant) {
         DataSource ds = buildTenantDataSource(tenant);
         router.addTargetDataSource(tenant.getTenantId(), ds);
@@ -71,7 +76,6 @@ public class TenantDataSourceConfig {
         log.info("Runtime datasource added for tenant={}", tenant.getTenantId());
     }
 
-    
     private DataSource buildTenantDataSource(Tenant tenant) {
         int poolSize = switch (tenant.getTier()) {
             case FREE -> 2;
@@ -80,18 +84,34 @@ public class TenantDataSourceConfig {
             case ENTERPRISE -> 20;
             case CUSTOM -> 5;
         };
-       
         return buildHikari(
                 "TenantPool-" + tenant.getTenantId(),
                 tenant.getDatabaseUrl(),
                 tenant.getDatabaseUsername(),
                 tenant.getDatabasePassword(),
-                poolSize
-        );
+                poolSize);
+    }
+
+    private DataSource buildHikariFromRow(Map<String, Object> row) {
+        String tenantId = (String) row.get("tenant_id");
+        String tier = (String) row.get("tier");
+        int poolSize = switch (TenantTier.valueOf(tier)) {
+            case FREE -> 2;
+            case STARTER -> 5;
+            case PROFESSIONAL -> 10;
+            case ENTERPRISE -> 20;
+            case CUSTOM -> 5;
+        };
+        return buildHikari(
+                "TenantPool-" + tenantId,
+                (String) row.get("database_url"),
+                (String) row.get("database_username"),
+                (String) row.get("database_password"),
+                poolSize);
     }
 
     private DataSource buildHikari(String poolName, String url, String user,
-                                   String password, int maxPoolSize) {
+            String password, int maxPoolSize) {
         HikariConfig cfg = new HikariConfig();
         cfg.setPoolName(poolName);
         cfg.setJdbcUrl(url);

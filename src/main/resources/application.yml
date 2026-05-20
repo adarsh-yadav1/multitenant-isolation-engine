@@ -2,26 +2,28 @@ spring:
   application:
     name: multi-tenant-engine
 
+  # ── Primary DataSource (Spring Boot / JPA / Flyway auto-config) ──────────────
+  datasource:
+    url: ${MASTER_DB_URL:jdbc:mysql://localhost:3306/saas_master?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
+    username: ${MASTER_DB_USER:master_user}
+    password: ${MASTER_DB_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
   # ── JPA / Hibernate ──────────────────────────────────────────────────────────
   jpa:
     hibernate:
-      ddl-auto: validate          # Flyway owns the schema; Hibernate just validates
+      ddl-auto: validate
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
-        multi_tenancy: SCHEMA     # Physical schema-per-tenant isolation
-        # Resolver beans are wired in TenantDataSourceConfig
-        tenant_identifier_resolver: com.saas.multitenant.multitenancy.TenantIdentifierResolver
-        multi_tenant_connection_provider: com.saas.multitenant.multitenancy.TenantConnectionProvider
     show-sql: false
-    open-in-view: false           # Avoid lazy-loading pitfalls
+    open-in-view: false
 
   # ── Redis ─────────────────────────────────────────────────────────────────────
   data:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
-      # password: ${REDIS_PASSWORD:}   # Uncomment for production Redis auth
       lettuce:
         pool:
           max-active: 16
@@ -31,25 +33,18 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration/master
-    url: ${MASTER_DB_URL:jdbc:mysql://localhost:3306/saas_master?useSSL=false&serverTimezone=UTC}
+    url: ${MASTER_DB_URL:jdbc:mysql://localhost:3306/saas_master?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
     user: ${MASTER_DB_USER:master_user}
     password: ${MASTER_DB_PASSWORD:}
 
-# ── Master DataSource ──────────────────────────────────────────────────────────
+# ── Master DataSource (used by TenantDataSourceConfig via @Value) ─────────────
 datasource:
   master:
     url: ${MASTER_DB_URL:jdbc:mysql://localhost:3306/saas_master?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
     username: ${MASTER_DB_USER:master_user}
     password: ${MASTER_DB_PASSWORD:}
-    hikari:
-      pool-name: MasterPool
-      maximum-pool-size: 10
-      minimum-idle: 2
-      connection-timeout: 30000
-      idle-timeout: 600000
-      max-lifetime: 1800000
 
-# ── Tenant DataSources (bootstrapped at startup, more added at runtime) ─────────
+# ── Tenant DataSources ────────────────────────────────────────────────────────
 tenant:
   datasource:
     default-user: ${TENANT_DB_USER:tenant_user}
@@ -79,13 +74,13 @@ rate-limit:
 # ── Security ──────────────────────────────────────────────────────────────────
 app:
   security:
-    jwt-secret: ${JWT_SECRET}
-    admin-jwt-secret: ${ADMIN_JWT_SECRET}
-    jwt-expiration-ms: 86400000    # 24 hours
+    jwt-secret: ${JWT_SECRET:dev-jwt-secret-change-in-production}
+    admin-jwt-secret: ${ADMIN_JWT_SECRET:dev-admin-secret-change-in-production}
+    jwt-expiration-ms: 86400000
   encryption:
-    db-key: ${DB_ENCRYPTION_KEY}
+    db-key: ${DB_ENCRYPTION_KEY:dev-encryption-key-change-in-production}
 
-# ── Actuator ─────────────────────────────────────────────────────────────────
+# ── Actuator ──────────────────────────────────────────────────────────────────
 management:
   endpoints:
     web:
@@ -98,7 +93,7 @@ management:
     tags:
       application: ${spring.application.name}
 
-# ── Logging ──────────────────────────────────────────────────────────────────
+# ── Logging ───────────────────────────────────────────────────────────────────
 logging:
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] [tenant:%X{tenantId}] %-5level %logger{36} - %msg%n"
@@ -106,3 +101,10 @@ logging:
     root: INFO
     com.saas.multitenant: DEBUG
     org.hibernate.SQL: WARN
+
+# ── Swagger ───────────────────────────────────────────────────────────────────
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs

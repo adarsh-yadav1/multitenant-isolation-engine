@@ -3,8 +3,10 @@ package com.saas.multitenant.domain.tenant;
 import com.saas.multitenant.config.TenantDataSourceConfig;
 import com.saas.multitenant.dto.CreateTenantRequest;
 import com.saas.multitenant.multitenancy.TenantAwareDataSourceRouter;
+import com.zaxxer.hikari.HikariDataSource;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.flywaydb.core.Flyway;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
@@ -35,14 +37,7 @@ public class TenantProvisioningService {
                     "Tenant already exists: " + req.getTenantId());
         }
 
-        // 2. Build DB URL pointing at the tenant's MySQL container
-        // Convention: mysql-<tenantId>:3306/<tenantId>_db
-        // For pre-provisioned DBs (tenant-a, tenant-b) use their host directly
-        String dbUrl = "jdbc:mysql://mysql-" + req.getTenantId()
-                + ":3306/" + req.getTenantId() + "_db"
-                + "?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC";
-
-        // 3. Persist tenant record in master DB
+        // 2. Persist tenant record in master DB
         Tenant tenant = Tenant.builder()
                 .tenantId(req.getTenantId())
                 .companyName(req.getName())
@@ -56,18 +51,44 @@ public class TenantProvisioningService {
         tenant = tenantRepository.save(tenant);
         log.info("Tenant persisted: {}", req.getTenantId());
 
-        // 4. Register datasource at runtime so this tenant's requests
-        // are routed immediately without a restart
+        // 3. Run Flyway migrations on the tenant DB
+        runTenantMigrations(req.getDatabaseUrl());
+
+        // 4. Register datasource at runtime so requests route immediately
         try {
             TenantAwareDataSourceRouter router = (TenantAwareDataSourceRouter) dataSource;
             tenantDataSourceConfig.addTenantDataSource(router, tenant);
         } catch (Exception e) {
             log.warn("Could not register datasource for tenant={}: {}",
                     req.getTenantId(), e.getMessage());
-            // Tenant is saved — datasource will be picked up on next restart
         }
 
         return tenant;
+    }
+
+    private void runTenantMigrations(String dbUrl) {
+        // Build a direct datasource pointing at the tenant DB — not the router
+        HikariDataSource tenantDs = new HikariDataSource();
+        tenantDs.setJdbcUrl(dbUrl);
+        tenantDs.setUsername(defaultTenantUser);
+        tenantDs.setPassword(defaultTenantPassword);
+        tenantDs.setMaximumPoolSize(2);
+        tenantDs.setConnectionTimeout(30_000);
+
+        try {
+            Flyway flyway = Flyway.configure()
+                    .dataSource(tenantDs)
+                    .locations("classpath:db/migration/tenant")
+                    .baselineOnMigrate(true)
+                    .load();
+            flyway.migrate();
+            log.info("Flyway migration completed for db: {}", dbUrl);
+        } catch (Exception e) {
+            log.error("Flyway migration failed for db={}: {}", dbUrl, e.getMessage());
+            throw new RuntimeException("Failed to run tenant migrations: " + e.getMessage(), e);
+        } finally {
+            tenantDs.close(); // always release the temp pool
+        }
     }
 
     @Transactional

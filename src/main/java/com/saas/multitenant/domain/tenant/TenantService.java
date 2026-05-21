@@ -2,61 +2,57 @@ package com.saas.multitenant.domain.tenant;
 
 import com.saas.multitenant.exception.TenantNotFoundException;
 import com.saas.multitenant.exception.TenantSuspendedException;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-// Business logic for tenant lifecycle management
-
-// All reads use the master datasource (the default/fallback datasource
-// registered in TenantDataSourceConfig). Results are cached to avoid
-// hitting the DB on every request — the filter and rate limiter call
-// these methods per-request.
+import javax.sql.DataSource;
+import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class TenantService {
 
-    private final TenantRepository tenantRepository;
+    private final JdbcTemplate masterJdbc;
     private final RateLimitEventRepository rateLimitEventRepository;
 
-    // Returns the tenant if ACTIVE, throws otherwise.
-    // Used by TenantBucketManager and TenantDataSourceConfig.
+    // Inject the raw master DataSource — NOT the routing proxy
+    public TenantService(@Qualifier("masterDataSource") DataSource masterDataSource,
+            RateLimitEventRepository rateLimitEventRepository) {
+        this.masterJdbc = new JdbcTemplate(masterDataSource);
+        this.rateLimitEventRepository = rateLimitEventRepository;
+    }
 
     @Cacheable(value = "activeTenants", key = "#tenantId")
-    @Transactional(readOnly = true)
     public Tenant getActiveTenant(String tenantId) {
-        Tenant tenant = tenantRepository.findByTenantId(tenantId)
-                .orElseThrow(() -> new TenantNotFoundException(tenantId));
+        List<Map<String, Object>> rows = masterJdbc.queryForList(
+                "SELECT * FROM tenants WHERE tenant_id = ?", tenantId);
 
-        if (tenant.getStatus() == TenantStatus.SUSPENDED) {
-            throw new TenantSuspendedException(tenantId);
-        }
-        if (tenant.getStatus() == TenantStatus.DEPROVISIONED) {
+        if (rows.isEmpty())
             throw new TenantNotFoundException(tenantId);
-        }
 
-        return tenant;
+        Map<String, Object> row = rows.get(0);
+        String status = (String) row.get("status");
+
+        if ("SUSPENDED".equals(status))
+            throw new TenantSuspendedException(tenantId);
+        if ("DEPROVISIONED".equals(status))
+            throw new TenantNotFoundException(tenantId);
+
+        return mapRowToTenant(row);
     }
-
-    // Quick active-check used by TenantIdentificationFilter.
-    // Returns false rather than throwing so the filter can return the right HTTP
-    // status.
 
     @Cacheable(value = "tenantActiveStatus", key = "#tenantId")
-    @Transactional(readOnly = true)
     public boolean isActiveTenant(String tenantId) {
-        return tenantRepository.findByTenantId(tenantId)
-                .map(t -> t.getStatus() == TenantStatus.ACTIVE)
-                .orElse(false);
+        List<Map<String, Object>> rows = masterJdbc.queryForList(
+                "SELECT status FROM tenants WHERE tenant_id = ?", tenantId);
+        return !rows.isEmpty() && "ACTIVE".equals(rows.get(0).get("status"));
     }
 
-    // Persists a rate-limit-exceeded event asynchronously so it doesn't add
-    // latency to the request that was already rejected with HTTP 429.
     @Async
     public void recordRateLimitEvent(String tenantId, String endpoint) {
         try {
@@ -69,5 +65,24 @@ public class TenantService {
             log.warn("Failed to record rate-limit event for tenant={} endpoint={}: {}",
                     tenantId, endpoint, e.getMessage());
         }
+    }
+
+    private Tenant mapRowToTenant(Map<String, Object> row) {
+        return Tenant.builder()
+                .id((String) row.get("id"))
+                .tenantId((String) row.get("tenant_id"))
+                .companyName((String) row.get("company_name"))
+                .status(TenantStatus.valueOf((String) row.get("status")))
+                .tier(TenantTier.valueOf((String) row.get("tier")))
+                .databaseUrl((String) row.get("database_url"))
+                .databaseUsername((String) row.get("database_username"))
+                .databasePassword((String) row.get("database_password"))
+                .requestsPerMinute(row.get("requests_per_minute") != null
+                        ? ((Number) row.get("requests_per_minute")).intValue()
+                        : null)
+                .bucketCapacity(row.get("bucket_capacity") != null
+                        ? ((Number) row.get("bucket_capacity")).intValue()
+                        : null)
+                .build();
     }
 }

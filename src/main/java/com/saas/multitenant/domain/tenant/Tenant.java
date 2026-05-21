@@ -19,8 +19,9 @@ import java.time.Instant;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Tenant {
+public class Tenant implements java.io.Serializable {
 
+    private static final long serialVersionUID = 1L;
     @Id
     @UuidGenerator
     @Column(length = 36, updatable = false, nullable = false)

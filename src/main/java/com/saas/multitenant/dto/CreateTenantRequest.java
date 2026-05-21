@@ -16,4 +16,6 @@ public class CreateTenantRequest {
     private TenantTier tier;
     @Email
     private String contactEmail;
+    @NotBlank
+    private String databaseUrl;
 }

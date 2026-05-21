@@ -48,7 +48,7 @@ public class TenantProvisioningService {
                 .companyName(req.getName())
                 .tier(req.getTier())
                 .status(TenantStatus.ACTIVE)
-                .databaseUrl(dbUrl)
+                .databaseUrl(req.getDatabaseUrl())
                 .databaseUsername(defaultTenantUser)
                 .databasePassword(defaultTenantPassword)
                 .build();

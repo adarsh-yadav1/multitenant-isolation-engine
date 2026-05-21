@@ -69,6 +69,11 @@ public class TenantDataSourceConfig {
         return router;
     }
 
+    @Bean(name = "masterDataSource")
+    public DataSource masterDataSource() {
+        return buildHikari("MasterPool-Direct", masterUrl, masterUser, masterPassword, 5);
+    }
+
     public void addTenantDataSource(TenantAwareDataSourceRouter router, Tenant tenant) {
         DataSource ds = buildTenantDataSource(tenant);
         router.addTargetDataSource(tenant.getTenantId(), ds);

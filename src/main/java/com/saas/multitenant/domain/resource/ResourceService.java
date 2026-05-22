@@ -2,6 +2,8 @@ package com.saas.multitenant.domain.resource;
 
 import com.saas.multitenant.dto.ResourceRequest;
 import com.saas.multitenant.dto.ResourceResponse;
+import com.saas.multitenant.exception.ResourceNotFoundException;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,8 +30,7 @@ public class ResourceService {
     @Transactional(readOnly = true)
     public ResourceResponse findById(String id) {
         Resource resource = resourceRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Resource not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException(id));
         return toResponse(resource);
     }
 
@@ -46,8 +47,7 @@ public class ResourceService {
     @Transactional
     public ResourceResponse update(String id, ResourceRequest req) {
         Resource resource = resourceRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Resource not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException(id));
         resource.setName(req.getName());
         resource.setDescription(req.getData());
         return toResponse(resourceRepository.save(resource));
@@ -56,7 +56,7 @@ public class ResourceService {
     @Transactional
     public void delete(String id) {
         if (!resourceRepository.existsById(id)) {
-            throw new IllegalArgumentException("Resource not found: " + id);
+            throw new ResourceNotFoundException(id);
         }
         resourceRepository.deleteById(id);
     }

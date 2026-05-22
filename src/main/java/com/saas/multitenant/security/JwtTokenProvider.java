@@ -10,49 +10,80 @@ import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
-
-
-// Parses and validates JWT Bearer tokens
-// Extracts the tenantId claim for use by TenantIdentificationFilter
+import java.util.Date;
 
 @Slf4j
 @Component
-public class JwtTokenProvider 
-{
+public class JwtTokenProvider {
 
-    private final SecretKey signingKey;
+    private final SecretKey tenantSigningKey;
+    private final SecretKey adminSigningKey;
+    private final long expirationMs;
 
-    public JwtTokenProvider(@Value("${app.security.jwt-secret}") String secret) 
-    {
-        this.signingKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+    public JwtTokenProvider(
+            @Value("${app.security.jwt-secret}") String tenantSecret,
+            @Value("${app.security.admin-jwt-secret}") String adminSecret,
+            @Value("${app.security.jwt-expiration-ms:86400000}") long expirationMs) {
+        this.tenantSigningKey = Keys.hmacShaKeyFor(
+                tenantSecret.getBytes(StandardCharsets.UTF_8));
+        this.adminSigningKey = Keys.hmacShaKeyFor(
+                adminSecret.getBytes(StandardCharsets.UTF_8));
+        this.expirationMs = expirationMs;
     }
 
-    // Extracts the tenantId claim from a Bearer token.
-     /**
-     * @param token raw JWT string (without "Bearer " prefix)
-     * @return tenantId claim value, or null if token is invalid/expired
-     */
-    
-    public String extractTenantId(String token) 
-    {
-        try 
-        {
+    public String generateTenantToken(String tenantId) {
+        Date now = new Date();
+        return Jwts.builder()
+                .subject(tenantId)
+                .claim("tenantId", tenantId)
+                .claim("type", "TENANT")
+                .issuedAt(now)
+                .expiration(new Date(now.getTime() + expirationMs))
+                .signWith(tenantSigningKey)
+                .compact();
+    }
+
+    public String extractTenantId(String token) {
+        try {
             Claims claims = Jwts.parser()
-                    .verifyWith(signingKey)
+                    .verifyWith(tenantSigningKey)
                     .build()
                     .parseSignedClaims(token)
                     .getPayload();
             return claims.get("tenantId", String.class);
-        } 
-        catch (JwtException | IllegalArgumentException e) 
-        {
-            log.debug("Invalid JWT token: {}", e.getMessage());
+        } catch (JwtException | IllegalArgumentException e) {
+            log.debug("Invalid tenant JWT: {}", e.getMessage());
             return null;
         }
     }
 
-    public boolean validateToken(String token) 
-    {
+    public boolean validateToken(String token) {
         return extractTenantId(token) != null;
+    }
+
+    public String generateAdminToken(String username) {
+        Date now = new Date();
+        return Jwts.builder()
+                .subject(username)
+                .claim("role", "ADMIN")
+                .claim("type", "ADMIN")
+                .issuedAt(now)
+                .expiration(new Date(now.getTime() + expirationMs))
+                .signWith(adminSigningKey)
+                .compact();
+    }
+
+    public boolean validateAdminToken(String token) {
+        try {
+            Claims claims = Jwts.parser()
+                    .verifyWith(adminSigningKey)
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
+            return "ADMIN".equals(claims.get("role", String.class));
+        } catch (JwtException | IllegalArgumentException e) {
+            log.debug("Invalid admin JWT: {}", e.getMessage());
+            return false;
+        }
     }
 }

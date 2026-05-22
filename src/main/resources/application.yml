@@ -77,6 +77,8 @@ app:
     jwt-secret: ${JWT_SECRET:dev-jwt-secret-change-in-production}
     admin-jwt-secret: ${ADMIN_JWT_SECRET:dev-admin-secret-change-in-production}
     jwt-expiration-ms: 86400000
+    admin-username: ${ADMIN_USERNAME:admin}
+    admin-password: ${ADMIN_PASSWORD:admin-secret}
   encryption:
     db-key: ${DB_ENCRYPTION_KEY:dev-encryption-key-change-in-production}
 

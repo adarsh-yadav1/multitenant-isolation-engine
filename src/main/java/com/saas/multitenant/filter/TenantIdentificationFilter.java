@@ -78,6 +78,7 @@ public class TenantIdentificationFilter extends OncePerRequestFilter {
                 path.startsWith("/v3/api-docs") ||
                 path.startsWith("/actuator") ||
                 path.startsWith("/admin") || // admin endpoints don't need a tenant
+                path.startsWith("/auth") ||
                 path.equals("/favicon.ico");
     }
 

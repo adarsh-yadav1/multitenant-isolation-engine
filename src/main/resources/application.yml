@@ -37,6 +37,14 @@ spring:
     user: ${MASTER_DB_USER:master_user}
     password: ${MASTER_DB_PASSWORD:}
 
+  # ── Graceful Shutdown ─────────────────────────────────────────────────────────
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+
+# ── Server ────────────────────────────────────────────────────────────────────
+server:
+  shutdown: graceful
+
 # ── Master DataSource (used by TenantDataSourceConfig via @Value) ─────────────
 datasource:
   master:
@@ -97,8 +105,6 @@ management:
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 logging:
-  pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] [tenant:%X{tenantId}] %-5level %logger{36} - %msg%n"
   level:
     root: INFO
     com.saas.multitenant: DEBUG

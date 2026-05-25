@@ -2,8 +2,13 @@
 spring:
   jpa:
     show-sql: false
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
 
 logging:
   level:
     root: INFO
     com.saas.multitenant: INFO
+
+server:
+  shutdown: graceful

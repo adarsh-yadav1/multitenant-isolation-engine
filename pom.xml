@@ -123,6 +123,12 @@
       <optional>true</optional>
     </dependency>
 
+    <!-- Caffeine cache — in-memory cache with TTL for tenant lookups -->
+    <dependency>
+        <groupId>com.github.ben-manes.caffeine</groupId>
+        <artifactId>caffeine</artifactId>
+    </dependency>
+
     <!-- ── Testing ─────────────────────────────────────────────────────────── -->
     <dependency>
       <groupId>org.springframework.boot</groupId>

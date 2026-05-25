@@ -1,0 +1,671 @@
+{
+  "info": {
+    "name": "Multi-Tenant Isolation Engine",
+    "description": "Complete API collection for the Multi-Tenant Resource Isolation Engine.\n\n**Setup:**\n1. Start the stack: `docker compose up -d`\n2. Import this collection into Postman\n3. Import the `Multi-Tenant Engine.postman_environment.json` environment\n4. Run **Get Admin Token** first — it auto-saves the token\n5. Run **Register Tenant** to provision tenant-a\n6. Run **Get Tenant Token** — it auto-saves the tenant token\n7. All other requests are ready to go",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "adminToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "tenantToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "tenantId",
+      "value": "tenant-a",
+      "type": "string"
+    },
+    {
+      "key": "resourceId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "description": "Issue JWT tokens for admins and tenants",
+      "item": [
+        {
+          "name": "Get Admin Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.token) {",
+                  "    pm.collectionVariables.set('adminToken', json.token);",
+                  "    console.log('Admin token saved');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"admin-secret\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/admin/token",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "admin", "token"]
+            },
+            "description": "Issues an admin JWT token. Token is automatically saved to collection variables for use in all admin endpoints."
+          }
+        },
+        {
+          "name": "Get Tenant Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.token) {",
+                  "    pm.collectionVariables.set('tenantToken', json.token);",
+                  "    console.log('Tenant token saved for: ' + json.tenantId);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tenantId\": \"{{tenantId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/token",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "token"]
+            },
+            "description": "Issues a tenant JWT token. Token is automatically saved to collection variables. Use this instead of X-Tenant-ID header."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin — Tenant Management",
+      "description": "Provision and manage tenants. All endpoints require admin JWT.",
+      "item": [
+        {
+          "name": "Register Tenant A",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tenantId\": \"tenant-a\",\n  \"name\": \"Tenant A Corp\",\n  \"tier\": \"STARTER\",\n  \"contactEmail\": \"admin@tenant-a.com\",\n  \"databaseUrl\": \"jdbc:mysql://mysql-tenant-a:3306/tenant_a?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/tenants",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "tenants"]
+            },
+            "description": "Registers a new tenant and automatically runs Flyway migrations on their isolated database. Returns 409 if tenant already exists."
+          }
+        },
+        {
+          "name": "Register Tenant B",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tenantId\": \"tenant-b\",\n  \"name\": \"Tenant B Corp\",\n  \"tier\": \"PROFESSIONAL\",\n  \"contactEmail\": \"admin@tenant-b.com\",\n  \"databaseUrl\": \"jdbc:mysql://mysql-tenant-b:3306/tenant_b?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/tenants",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "tenants"]
+            },
+            "description": "Registers Tenant B on its own isolated MySQL instance with PROFESSIONAL tier (600 req/min)."
+          }
+        },
+        {
+          "name": "Register FREE Tier Tenant",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tenantId\": \"free-tier\",\n  \"name\": \"Free Tier Corp\",\n  \"tier\": \"FREE\",\n  \"contactEmail\": \"admin@free.com\",\n  \"databaseUrl\": \"jdbc:mysql://mysql-tenant-a:3306/tenant_a?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/tenants",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "tenants"]
+            },
+            "description": "Registers a FREE tier tenant (60 req/min). Use this for rate limit testing."
+          }
+        },
+        {
+          "name": "List All Tenants",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/tenants",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "tenants"]
+            },
+            "description": "Returns all registered tenants with their status, tier, and rate limit config."
+          }
+        },
+        {
+          "name": "Suspend Tenant",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/tenants/{{tenantId}}/status?status=SUSPENDED",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "tenants", "{{tenantId}}", "status"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "SUSPENDED"
+                }
+              ]
+            },
+            "description": "Suspends a tenant. Subsequent requests from this tenant will receive 403 Forbidden."
+          }
+        },
+        {
+          "name": "Reactivate Tenant",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/tenants/{{tenantId}}/status?status=ACTIVE",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "tenants", "{{tenantId}}", "status"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "ACTIVE"
+                }
+              ]
+            },
+            "description": "Reactivates a suspended tenant."
+          }
+        },
+        {
+          "name": "Update Rate Limit",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/tenants/{{tenantId}}/rate-limit?requestsPerMinute=500",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "tenants", "{{tenantId}}", "rate-limit"],
+              "query": [
+                {
+                  "key": "requestsPerMinute",
+                  "value": "500"
+                }
+              ]
+            },
+            "description": "Overrides the tenant's rate limit. Takes effect on next request — no restart needed. Reset Redis bucket after this call for immediate effect."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Resources — Tenant CRUD",
+      "description": "Tenant-scoped resource operations. Use either X-Tenant-ID header or Bearer tenant token.",
+      "item": [
+        {
+          "name": "Create Resource",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.id) {",
+                  "    pm.collectionVariables.set('resourceId', json.id);",
+                  "    console.log('Resource ID saved: ' + json.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenantId}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"My First Resource\",\n  \"data\": \"some important data\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/resources",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "resources"]
+            },
+            "description": "Creates a resource in the current tenant's isolated database. Resource ID is auto-saved for use in subsequent requests."
+          }
+        },
+        {
+          "name": "List Resources",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenantId}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/resources",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "resources"]
+            },
+            "description": "Lists all resources belonging to the current tenant only. Cannot see other tenants' resources."
+          }
+        },
+        {
+          "name": "Get Resource by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenantId}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/resources/{{resourceId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "resources", "{{resourceId}}"]
+            },
+            "description": "Gets a single resource by ID. Returns 404 if the resource belongs to a different tenant — proving physical isolation."
+          }
+        },
+        {
+          "name": "Update Resource",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenantId}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Resource Name\",\n  \"data\": \"updated data\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/resources/{{resourceId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "resources", "{{resourceId}}"]
+            },
+            "description": "Updates a resource. Only works if the resource belongs to the current tenant."
+          }
+        },
+        {
+          "name": "Delete Resource",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenantId}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/resources/{{resourceId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "resources", "{{resourceId}}"]
+            },
+            "description": "Deletes a resource. Returns 204 No Content on success, 404 if not found."
+          }
+        },
+        {
+          "name": "Create Resource (via JWT)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tenantToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"JWT Auth Resource\",\n  \"data\": \"created via Bearer token instead of X-Tenant-ID header\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/resources",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "resources"]
+            },
+            "description": "Same as Create Resource but uses JWT Bearer token instead of X-Tenant-ID header. Run Get Tenant Token first."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Quota",
+      "description": "Rate limit usage for the current tenant",
+      "item": [
+        {
+          "name": "Get Quota",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenantId}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/quota",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "quota"]
+            },
+            "description": "Returns the current tenant's rate limit configuration and remaining tokens in the bucket."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Isolation Proof",
+      "description": "Proves tenant data is physically isolated. Run these in order.",
+      "item": [
+        {
+          "name": "1. Create Resource as Tenant A",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.id) {",
+                  "    pm.collectionVariables.set('resourceId', json.id);",
+                  "    console.log('Tenant A resource ID: ' + json.id);",
+                  "    console.log('Now try to access this ID as Tenant B');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-ID",
+                "value": "tenant-a"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Tenant A Secret\",\n  \"data\": \"confidential data — tenant-b cannot see this\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/resources",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "resources"]
+            },
+            "description": "Step 1 — Create a resource as Tenant A. The ID is saved automatically."
+          }
+        },
+        {
+          "name": "2. Try to Access Tenant A Resource as Tenant B",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "value": "tenant-b"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/resources/{{resourceId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "resources", "{{resourceId}}"]
+            },
+            "description": "Step 2 — Tenant B tries to access Tenant A's resource by UUID. Expected: 404 Not Found. The UUID does not exist in Tenant B's database — physical isolation, not just a WHERE clause filter."
+          }
+        },
+        {
+          "name": "3. List Tenant A Resources (sees only own data)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "value": "tenant-a"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/resources",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "resources"]
+            },
+            "description": "Step 3 — Tenant A lists its resources. Should only see Tenant A's data."
+          }
+        },
+        {
+          "name": "4. List Tenant B Resources (sees only own data)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "value": "tenant-b"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/resources",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "resources"]
+            },
+            "description": "Step 4 — Tenant B lists its resources. Should only see Tenant B's data. No overlap with Tenant A."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Error Cases",
+      "description": "Demonstrates proper RFC 7807 error responses",
+      "item": [
+        {
+          "name": "409 — Duplicate Tenant",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tenantId\": \"tenant-a\",\n  \"name\": \"Duplicate\",\n  \"tier\": \"FREE\",\n  \"contactEmail\": \"a@a.com\",\n  \"databaseUrl\": \"jdbc:mysql://x:3306/x\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/tenants",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "tenants"]
+            },
+            "description": "Expected: 409 Conflict — tenant-a already exists."
+          }
+        },
+        {
+          "name": "404 — Resource Not Found",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Tenant-ID",
+                "value": "{{tenantId}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/resources/00000000-0000-0000-0000-000000000000",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "resources", "00000000-0000-0000-0000-000000000000"]
+            },
+            "description": "Expected: 404 Not Found with RFC 7807 Problem Detail body."
+          }
+        },
+        {
+          "name": "400 — Validation Failure",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tenantId\": \"\",\n  \"name\": \"\",\n  \"tier\": null,\n  \"databaseUrl\": \"\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/tenants",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "tenants"]
+            },
+            "description": "Expected: 400 Bad Request with field-level validation error details."
+          }
+        },
+        {
+          "name": "401 — Missing Tenant ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/resources",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "resources"]
+            },
+            "description": "Expected: 401 Unauthorized — no X-Tenant-ID header or Bearer token provided."
+          }
+        },
+        {
+          "name": "403 — Admin Endpoint Without Token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/tenants",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "tenants"]
+            },
+            "description": "Expected: 403 Forbidden — /admin/** requires a valid admin JWT."
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -2,6 +2,8 @@ package com.saas.multitenant.ratelimit;
 
 import com.saas.multitenant.domain.tenant.Tenant;
 import com.saas.multitenant.domain.tenant.TenantService;
+import com.saas.multitenant.dto.QuotaResponse;
+
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.BucketConfiguration;
 import io.github.bucket4j.distributed.proxy.ProxyManager;
@@ -15,7 +17,6 @@ import org.springframework.stereotype.Service;
 import java.time.Duration;
 import java.util.function.Supplier;
 
-
 // Central authority for Bucket4j token bucket lifecycle
 // Each tenant's bucket is stored in Redis at key rate_limit:{tenantId}
 // The ProxyManager handles serialization, atomic operations via Lua scripts
@@ -27,7 +28,6 @@ import java.util.function.Supplier;
 //   Calling  #resetBucketForTenant(String) deletes the Redis key so the
 //   next request re-creates it with updated limits — enabling zero-downtime rate limit changes
 
-
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -38,20 +38,19 @@ public class TenantBucketManager {
     private final ProxyManager<String> bucketProxyManager;
     private final TenantService tenantService;
 
-    
     // Returns (or lazily creates) the Bucket4j bucket for the given tenant
-    // Backed by Redis — safe to call from multiple application instances concurrently
-    
+    // Backed by Redis — safe to call from multiple application instances
+    // concurrently
+
     public Bucket getBucketForTenant(String tenantId) {
         Supplier<BucketConfiguration> configSupplier = () -> buildConfiguration(tenantId);
         return bucketProxyManager.builder().build(BUCKET_KEY_PREFIX + tenantId, configSupplier);
     }
 
-    
     // Deletes the Redis bucket key so the next request re-creates it with the
     // current (updated) rate limit configuration. Call after modifying a tenant's
     // rate limit in the database
-    
+
     @CacheEvict(value = "tenantRateLimitConfig", key = "#tenantId")
     public void resetBucketForTenant(String tenantId) {
         bucketProxyManager.removeProxy(BUCKET_KEY_PREFIX + tenantId);
@@ -65,11 +64,10 @@ public class TenantBucketManager {
         return tenant.getEffectiveRequestsPerMinute();
     }
 
-    //  Asynchronously persist a rate-limit-exceeded event for analytics
+    // Asynchronously persist a rate-limit-exceeded event for analytics
     public void logRateLimitEvent(String tenantId, String endpoint) {
         tenantService.recordRateLimitEvent(tenantId, endpoint);
     }
-
 
     private BucketConfiguration buildConfiguration(String tenantId) {
         Tenant tenant = tenantService.getActiveTenant(tenantId);
@@ -87,6 +85,23 @@ public class TenantBucketManager {
 
         return BucketConfiguration.builder()
                 .addLimit(limit)
+                .build();
+    }
+
+    public QuotaResponse getQuota(String tenantId) {
+        Tenant tenant = tenantService.getActiveTenant(tenantId);
+        Bucket bucket = getBucketForTenant(tenantId);
+
+        long remaining = bucket.getAvailableTokens();
+        long limit = tenant.getEffectiveRequestsPerMinute();
+        long burst = tenant.getEffectiveBucketCapacity();
+
+        return QuotaResponse.builder()
+                .tenantId(tenantId)
+                .limitPerMinute(limit)
+                .burstCapacity(burst)
+                .remainingTokens(remaining)
+                .throttled(remaining == 0)
                 .build();
     }
 }

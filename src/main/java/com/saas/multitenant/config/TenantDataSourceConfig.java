@@ -3,9 +3,12 @@ package com.saas.multitenant.config;
 import com.saas.multitenant.domain.tenant.Tenant;
 import com.saas.multitenant.domain.tenant.TenantTier;
 import com.saas.multitenant.multitenancy.TenantAwareDataSourceRouter;
+import com.saas.multitenant.security.AesEncryptionService;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import lombok.extern.slf4j.Slf4j;
+
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -20,6 +23,10 @@ import java.util.Map;
 @Slf4j
 @Configuration
 public class TenantDataSourceConfig {
+
+    @Autowired
+    private AesEncryptionService encryptionService;
+
 
     @Value("${datasource.master.url}")
     private String masterUrl;
@@ -93,27 +100,34 @@ public class TenantDataSourceConfig {
                 "TenantPool-" + tenant.getTenantId(),
                 tenant.getDatabaseUrl(),
                 tenant.getDatabaseUsername(),
-                tenant.getDatabasePassword(),
-                poolSize);
+                encryptionService.decrypt(tenant.getDatabasePassword()), // decrypt here
+                poolSize
+        );
     }
 
     private DataSource buildHikariFromRow(Map<String, Object> row) {
-        String tenantId = (String) row.get("tenant_id");
-        String tier = (String) row.get("tier");
-        int poolSize = switch (TenantTier.valueOf(tier)) {
-            case FREE -> 2;
-            case STARTER -> 5;
-            case PROFESSIONAL -> 10;
-            case ENTERPRISE -> 20;
-            case CUSTOM -> 5;
-        };
-        return buildHikari(
-                "TenantPool-" + tenantId,
-                (String) row.get("database_url"),
-                (String) row.get("database_username"),
-                (String) row.get("database_password"),
-                poolSize);
-    }
+    String tenantId = (String) row.get("tenant_id");
+    String tier = (String) row.get("tier");
+    String encryptedPassword = (String) row.get("database_password");
+
+    // Decrypt password before connecting
+    String plainPassword = encryptionService.decrypt(encryptedPassword);
+
+    int poolSize = switch (TenantTier.valueOf(tier)) {
+        case FREE -> 2;
+        case STARTER -> 5;
+        case PROFESSIONAL -> 10;
+        case ENTERPRISE -> 20;
+        case CUSTOM -> 5;
+    };
+    return buildHikari(
+            "TenantPool-" + tenantId,
+            (String) row.get("database_url"),
+            (String) row.get("database_username"),
+            plainPassword,   // decrypted
+            poolSize
+    );
+}
 
     private DataSource buildHikari(String poolName, String url, String user,
             String password, int maxPoolSize) {

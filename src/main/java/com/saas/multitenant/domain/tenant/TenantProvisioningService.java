@@ -3,6 +3,7 @@ package com.saas.multitenant.domain.tenant;
 import com.saas.multitenant.config.TenantDataSourceConfig;
 import com.saas.multitenant.dto.CreateTenantRequest;
 import com.saas.multitenant.multitenancy.TenantAwareDataSourceRouter;
+import com.saas.multitenant.security.AesEncryptionService;
 import com.zaxxer.hikari.HikariDataSource;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,6 +20,7 @@ import javax.sql.DataSource;
 @RequiredArgsConstructor
 public class TenantProvisioningService {
 
+    private final AesEncryptionService encryptionService;
     private final TenantRepository tenantRepository;
     private final TenantDataSourceConfig tenantDataSourceConfig;
     private final DataSource dataSource; // the router bean
@@ -45,7 +47,7 @@ public class TenantProvisioningService {
                 .status(TenantStatus.ACTIVE)
                 .databaseUrl(req.getDatabaseUrl())
                 .databaseUsername(defaultTenantUser)
-                .databasePassword(defaultTenantPassword)
+                .databasePassword(encryptionService.encrypt(defaultTenantPassword))
                 .build();
 
         tenant = tenantRepository.save(tenant);

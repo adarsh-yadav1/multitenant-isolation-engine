@@ -13,46 +13,16 @@
 
 Most multi-tenant systems isolate data with a `WHERE tenant_id = ?` clause. This engine takes a stronger approach: **each tenant gets a physically separate MySQL database and HikariCP connection pool**. A bug in the application layer cannot leak cross-tenant data because the wrong database simply does not contain the other tenant's rows.
 
----
-
 ## Architecture
 
-```
-HTTP Request
-     │
-     ▼
-┌──────────────────────────────┐
-│   TenantIdentificationFilter  │  ← Extracts X-Tenant-ID header or JWT claim
-│                               │    Returns 401 if missing, 403 if suspended
-└───────────────┬──────────────┘
-                │ Sets TenantContext (ThreadLocal)
-                ▼
-┌──────────────────────────────┐
-│    RateLimitingInterceptor    │  ← Checks Redis token bucket (Bucket4j)
-│                               │    Returns HTTP 429 + Retry-After if exhausted
-└───────────────┬──────────────┘
-                │ Consumes 1 token
-                ▼
-┌──────────────────────────────┐
-│      Spring @RestController   │  ← Business logic (tenant-scoped)
-└───────────────┬──────────────┘
-                │ JPA/Hibernate calls
-                ▼
-┌──────────────────────────────┐
-│  TenantAwareDataSourceRouter  │  ← Reads TenantContext → picks DataSource
-│  (AbstractRoutingDataSource)  │    Falls back to master when context is empty
-└───────┬───────────┬──────────┘
-        │           │
-   ┌────▼───┐  ┌────▼───┐  ┌──────────┐
-   │Tenant A│  │Tenant B│  │  Master  │
-   │ MySQL  │  │ MySQL  │  │  MySQL   │
-   └────────┘  └────────┘  └──────────┘
-                                 ↑
-                         Tenant registry,
-                         admin operations
-
-Redis ← Bucket4j token buckets per tenant (key: rate_limit:{tenantId})
-```
+See [`docs/architecture.md`](docs/architecture.md) for the full system design including:
+- Request lifecycle sequence diagram
+- Tenant provisioning flow
+- JWT authentication flow
+- Datasource routing decision tree
+- Rate limiting flow
+- Database layout (ER diagram)
+- Security layers
 
 ---
 
@@ -599,17 +569,7 @@ multi-tenant-engine/
 └── README.md
 ```
 ---
-## Architecture
 
-See [`docs/architecture.md`](docs/architecture.md) for the full system design including:
-- Request lifecycle sequence diagram
-- Tenant provisioning flow
-- JWT authentication flow
-- Datasource routing decision tree
-- Rate limiting flow
-- Database layout (ER diagram)
-- Security layers
----
 ## Security Design
 
 - Admin and tenant JWTs signed with **separate secret keys**

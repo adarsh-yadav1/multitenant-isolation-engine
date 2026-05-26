@@ -475,19 +475,35 @@ All errors follow the Problem Detail standard:
 | Rate limit exceeded | 429 |
 
 ---
+## Observability
 
+Prometheus scrapes `/actuator/prometheus` every 15 seconds. Grafana visualizes per-tenant traffic, rate limit hits, HikariCP pool usage, and JVM metrics.
+
+**Start the observability stack:**
+```bash
+docker compose up -d
+# Grafana: http://localhost:3000 (admin/admin)
+# Prometheus: http://localhost:9090
+```
+
+![alt text](image.png)
+
+![alt text](image-1.png)
+
+---
 ## Project Structure
 
 ```
 multi-tenant-engine/
 ├── scripts/
-│   └── rate-limit-test.sh          
+│   └── rate-limit-test.sh              # Smoke test — proves FREE tier 60 req/min enforcement
 │
 ├── src/
 │   └── main/
 │       ├── java/com/saas/multitenant/
 │       │   ├── config/
-│       │   │   ├── RedisConfig.java            
+│       │   │   ├── CacheConfig.java             
+│       │   │   ├── RedisConfig.java             
 │       │   │   ├── SecurityConfig.java          
 │       │   │   ├── TenantDataSourceConfig.java  
 │       │   │   └── WebMvcConfig.java            
@@ -495,27 +511,29 @@ multi-tenant-engine/
 │       │   ├── controller/
 │       │   │   ├── AdminController.java         
 │       │   │   ├── AuthController.java          
-│       │   │   └── ResourceController.java      
+│       │   │   ├── QuotaController.java        
+│       │   │   └── ResourceController.java  
 │       │   │
 │       │   ├── domain/
 │       │   │   ├── resource/
-│       │   │   │   ├── Resource.java            
+│       │   │   │   ├── Resource.java          
 │       │   │   │   ├── ResourceRepository.java  
-│       │   │   │   └── ResourceService.java     
+│       │   │   │   └── ResourceService.java    
 │       │   │   └── tenant/
-│       │   │       ├── RateLimitEvent.java              
-│       │   │       ├── RateLimitEventRepository.java    
-│       │   │       ├── Tenant.java                      
-│       │   │       ├── TenantRepository.java            
+│       │   │       ├── RateLimitEvent.java             
+│       │   │       ├── RateLimitEventRepository.java   
+│       │   │       ├── Tenant.java                     
+│       │   │       ├── TenantRepository.java          
 │       │   │       ├── TenantProvisioningService.java   
 │       │   │       ├── TenantService.java               
-│       │   │       ├── TenantStatus.java                
+│       │   │       ├── TenantStatus.java              
 │       │   │       └── TenantTier.java                  
 │       │   │
 │       │   ├── dto/
 │       │   │   ├── CreateTenantRequest.java     
-│       │   │   ├── ResourceRequest.java         
-│       │   │   ├── ResourceResponse.java        
+│       │   │   ├── QuotaResponse.java           
+│       │   │   ├── ResourceRequest.java     
+│       │   │   ├── ResourceResponse.java       
 │       │   │   └── TenantResponse.java          
 │       │   │
 │       │   ├── exception/
@@ -525,40 +543,58 @@ multi-tenant-engine/
 │       │   │   └── TenantSuspendedException.java    # 403 on suspended tenant
 │       │   │
 │       │   ├── filter/
+│       │   │   ├── RequestLoggingFilter.java        
 │       │   │   └── TenantIdentificationFilter.java  
 │       │   │
 │       │   ├── multitenancy/
 │       │   │   ├── TenantAwareDataSourceRouter.java  
-│       │   │   ├── TenantContext.java                
-│       │   │   └── TenantIdentifierResolver.java     
+│       │   │   ├── TenantContext.java               
+│       │   │   └── TenantIdentifierResolver.java  
 │       │   │
 │       │   ├── ratelimit/
 │       │   │   ├── RateLimitingInterceptor.java  
-│       │   │   └── TenantBucketManager.java      
+│       │   │   └── TenantBucketManager.java     
 │       │   │
 │       │   ├── security/
-│       │   │   ├── JwtAuthFilter.java       
-│       │   │   └── JwtTokenProvider.java    
+│       │   │   ├── AesEncryptionService.java    
+│       │   │   ├── JwtAuthFilter.java          
+│       │   │   └── JwtTokenProvider.java       
 │       │   │
 │       │   └── MultiTenantEngineApplication.java
 │       │
 │       └── resources/
 │           ├── application.yml              
-│           ├── application-docker.yml       
+│           ├── application-docker.yml     
+│           ├── logback-spring.xml           
 │           └── db/migration/
 │               ├── master/
 │               │   └── V1__create_tenant_registry.sql       
 │               └── tenant/
-│                   └── V1__create_tenant_business_schema.sql 
+│                   └── V1__create_tenant_business_schema.sql  
 │
-├── docker/                              
+├── docker/
+│   ├── grafana/
+│   │   └── provisioning/
+│   │       ├── dashboards/
+│   │       │   ├── dashboards.yml                
+│   │       │   └── multitenant-dashboard.json      
+│   │       └── datasources/
+│   │           └── prometheus.yml                  
+│   ├── init-scripts/                              
+│   └── prometheus/
+│       └── prometheus.yml                          
+│
 ├── docs/
-│   └── rate-limiting.md                 
-├── .env.example                         
+│   └── rate-limiting.md                 # Smoke test output + Redis bucket management guide
+│
+├── postman/
+│   └── postman_collection.json          
+│
+├── .env.example                         # Required environment variables (no secrets)
 ├── .gitignore
 ├── docker-compose.yml                   
-├── docker-compose.override.yml         
-├── Dockerfile                           
+├── docker-compose.override.yml          # Dev overrides — debug port 5005, Adminer
+├── Dockerfile                           # Multi-stage Maven build → JRE runtime image
 ├── pom.xml
 └── README.md
 ```

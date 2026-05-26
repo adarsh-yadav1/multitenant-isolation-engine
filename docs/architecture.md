@@ -232,9 +232,9 @@ flowchart TD
     POOL_A["HikariCP TenantPool-tenant-a<br/>→ tenant_a DB<br/>resources table"]
     POOL_B["HikariCP TenantPool-tenant-b<br/>→ tenant_b DB<br/>resources table"]
 
-    style MASTER fill:#f5a623
-    style POOL_A fill:#7ed321
-    style POOL_B fill:#4a90e2
+    style MASTER fill:#f5a623,color:#000
+    style POOL_A fill:#7ed321,color:#000
+    style POOL_B fill:#4a90e2,color:#000
 ```
 
 **Key design decision:** `TenantService` deliberately bypasses the router by using a direct `JdbcTemplate` bound to the master datasource. This prevents the chicken-and-egg problem where validating a tenant requires a DB lookup, which requires knowing the tenant, which requires validation.

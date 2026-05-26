@@ -272,8 +272,8 @@ flowchart TD
     ALLOW["Set X-RateLimit-Remaining header<br/>forward to controller"]
     REJECT["429 Too Many Requests<br/>Retry-After: N seconds<br/>log rate limit event async"]
 
-    style ALLOW fill:#7ed321
-    style REJECT fill:#d0021b,color:#fff
+    style ALLOW fill:#7ed321,color:#000
+    style REJECT fill:#d0021b,color:#000
 ```
 
 **Tier configuration:**

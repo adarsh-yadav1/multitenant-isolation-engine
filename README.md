@@ -486,9 +486,9 @@ docker compose up -d
 # Prometheus: http://localhost:9090
 ```
 
-![alt text](image.png)
+![alt text](images/grafana_dashboard.png)
 
-![alt text](image-1.png)
+![alt text](images/grafana_dashboard2.png)
 
 ---
 ## Project Structure

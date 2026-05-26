@@ -598,7 +598,18 @@ multi-tenant-engine/
 ├── pom.xml
 └── README.md
 ```
+---
+## Architecture
 
+See [`docs/architecture.md`](docs/architecture.md) for the full system design including:
+- Request lifecycle sequence diagram
+- Tenant provisioning flow
+- JWT authentication flow
+- Datasource routing decision tree
+- Rate limiting flow
+- Database layout (ER diagram)
+- Security layers
+---
 ## Security Design
 
 - Admin and tenant JWTs signed with **separate secret keys**

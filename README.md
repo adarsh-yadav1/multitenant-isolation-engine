@@ -26,6 +26,16 @@ See [`docs/architecture.md`](docs/architecture.md) for the full system design in
 
 ---
 
+## Architecture Decisions
+
+See [`docs/decisions/`](docs/decisions/) for the reasoning behind key technical choices:
+
+- [ADR-001](docs/decisions/ADR-001-physical-db-isolation.md) — Physical DB isolation over schema-per-tenant
+- [ADR-002](docs/decisions/ADR-002-bucket4j-rate-limiting.md) — Bucket4j over Spring Rate Limiter
+- [ADR-003](docs/decisions/ADR-003-lettuce-over-jedis.md) — Lettuce over Jedis
+- [ADR-004](docs/decisions/ADR-004-hikaricp-pool-per-tenant.md) — HikariCP pool-per-tenant
+
+---
 ## Tech Stack
 
 | Component | Technology | Purpose |
